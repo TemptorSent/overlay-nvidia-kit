@@ -12,7 +12,7 @@ following steps:
 
 ::
 
-  Copyright 2014 Firstname Lastname. Distributed under the terms of the GNU
+  Copyright 2018 Firstname Lastname. Distributed under the terms of the GNU
   General Public License version 2.
 
 2. Modify ``profiles/repo_name`` and enter a single-word name for your repository.
