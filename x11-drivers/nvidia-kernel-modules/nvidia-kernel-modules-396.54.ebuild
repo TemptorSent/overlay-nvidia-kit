@@ -20,7 +20,7 @@ DEPEND="
 	kernel_linux? ( virtual/linux-sources )
 "
 
-S="${WORKDIR}/"
+S="${WORKDIR}/kernel-module"
 
 nvidia_drivers_versions_check() {
 	if use kernel_linux && kernel_is ge 4 17; then
@@ -109,7 +109,7 @@ pkg_setup() {
 }
 
 src_unpack() {
-	cp -r "${EPREFIX}/opt/nvidia-drivers-${PV}/${NV_SRC}" "${S}" || die
+	cp -r "${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}/src/kernel-module" "${S}" || die
 }
 
 
