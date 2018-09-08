@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SUPPORT_GCC_VERSIONS_BY_CUDA="CUDA_SUPPORTED_GCC"
+CUDADIR="CUDA_ROOT"
 
 _print_help() {
 	cat <<- EOF
@@ -8,6 +9,7 @@ _print_help() {
 		$(basename $0) [options]
 	
 		-s | --supported   Returns by current CUDA supported gcc versions
+		-r | --cuda-root   Returns the CUDA's root directory
 		-h | --help        Shows this help
 	EOF
 }
@@ -15,6 +17,10 @@ _print_help() {
 case ${1} in
 	-s|--supported)
 		echo "${SUPPORT_GCC_VERSIONS_BY_CUDA}"
+		exit 0
+		;;
+	-r|--cuda-root)
+		echo "${CUDADIR}"
 		exit 0
 		;;
 	-h|--help)
