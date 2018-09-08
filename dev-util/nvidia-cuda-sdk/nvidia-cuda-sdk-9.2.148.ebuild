@@ -5,51 +5,50 @@ EAPI=6
 
 inherit cuda eutils flag-o-matic portability toolchain-funcs unpacker versionator
 
-MYD=$(get_version_component_range 1-2)
-DRIVER_PV="396.37"
+CUDA_VERSION="$(get_version_component_range 1-2)"
 
 DESCRIPTION="NVIDIA CUDA Software Development Kit"
 HOMEPAGE="https://developer.nvidia.com/cuda-zone"
-SRC_URI="
-	https://developer.nvidia.com/compute/cuda/${MYD}/Prod/local_installers/cuda_${PV}_${DRIVER_PV}_linux -> cuda_${PV}_${DRIVER_PV}_linux.run
-	https://developer.nvidia.com/compute/cuda/${MYD}/Prod/patches/1/cuda_${PV}.1_linux -> cuda_${PV}.1_linux.run
-"
-#	https://developer.nvidia.com/compute/cuda/${MYD}/Prod/patches/2/cuda_${PV}.2_linux -> cuda_${PV}.2_linux.run
-#	https://developer.nvidia.com/compute/cuda/${MYD}/Prod/patches/3/cuda_${PV}.3_linux -> cuda_${PV}.3_linux.run
-#"
+SRC_URI=""
 
 LICENSE="CUDPP"
-SLOT="0"
+SLOT="${CUDA_VERSION}/${PV}"
 KEYWORDS="~amd64 ~amd64-linux"
-IUSE="+cuda debug +doc +examples opencl mpi"
+IUSE="+cuda debug +doc +examples +opencl mpi"
 
 RDEPEND="
-	~dev-util/nvidia-cuda-toolkit-${PV}
+	=dev-util/nvidia-cuda-toolkit-${PV}*
 	media-libs/freeglut
 	examples? (
 		media-libs/freeimage
 		media-libs/glew:0=
-		>=x11-drivers/nvidia-drivers-${DRIVER_PV}[uvm]
 		mpi? ( virtual/mpi )
-		)"
+	)
+"
 DEPEND="${RDEPEND}"
+
+OPT_NVIDIA_DIR="${EPREFIX}/opt/nvidia"
+OPT_NVIDIA_DISTFILES="${EPREFIX}/opt/nvidia/distfiles"
+CUDA_DIR="${OPT_NVIDIA_DIR}/cuda-${CUDA_VERSION}"
+ECUDA_DIR="${EPREFIX}${CUDA_DIR}"
+EDCUDA_DIR="${D%/}${ECUDA_DIR}"
 
 RESTRICT="test"
 
 S=${WORKDIR}/samples
 
 QA_EXECSTACK=(
-	opt/cuda/sdk/0_Simple/cdpSimplePrint/cdpSimplePrint
-	opt/cuda/sdk/0_Simple/cdpSimpleQuicksort/cdpSimpleQuicksort
-	opt/cuda/sdk/bin/x86_64/linux/release/cdpSimplePrint
-	opt/cuda/sdk/bin/x86_64/linux/release/cdpSimpleQuicksort
+	${CUDA_DIR#/}/sdk/0_Simple/cdpSimplePrint/cdpSimplePrint
+	${CUDA_DIR#/}/sdk/0_Simple/cdpSimpleQuicksort/cdpSimpleQuicksort
+	${CUDA_DIR#/}/sdk/bin/x86_64/linux/release/cdpSimplePrint
+	${CUDA_DIR#/}/sdk/bin/x86_64/linux/release/cdpSimpleQuicksort
 	)
 
 src_unpack() {
 	# We first need to unpack the cuda_${PV}_linux.run file
 	# which includes the cuda-samples*run file.
-	unpacker
-	unpacker run_files/cuda-samples*run
+
+	unpacker "$(ls -1v "${OPT_NVIDIA_DISTFILES}"/cuda-samples.${PV}-*-linux.run | tail -1)"
 }
 
 pkg_setup() {
@@ -70,7 +69,7 @@ src_prepare() {
 			-e "/LINK/s:g++:$(tc-getCXX) ${LDFLAGS}:g" \
 			-e "/CC/s:gcc:$(tc-getCC):g" \
 			-e "/GCC/s:g++:$(tc-getCXX):g" \
-			-e "/NVCC /s|\(:=\).*|:= ${EPREFIX}/opt/cuda/bin/nvcc|g" \
+			-e "/NVCC /s|\(:=\).*|:= ${ECUDA_DIR}/bin/nvcc|g" \
 			-e "/ CFLAGS/s|\(:=\)|\1 ${CFLAGS}|g" \
 			-e "/ CXXFLAGS/s|\(:=\)|\1 ${CXXFLAGS}|g" \
 			-e "/NVCCFLAGS/s|\(:=\)|\1 ${NVCCFLAGS} |g" \
@@ -94,8 +93,8 @@ src_compile() {
 	use debug && myopts+=("dbg=1")
 	export FAKEROOTKEY=1 # Workaround sandbox issue in #462602
 	emake \
-		cuda-install="${EPREFIX}/opt/cuda" \
-		CUDA_PATH="${EPREFIX}/opt/cuda/" \
+		cuda-install="${ECUDA_DIR}" \
+		CUDA_PATH="${ECUDA_DIR}" \
 		MPI_GCC=10 \
 		"${myopts[@]}"
 }
@@ -111,25 +110,15 @@ src_test() {
 }
 
 src_install() {
-	local f t crap=( *.txt Samples.htm* )
-
-	if use doc; then
-		ebegin "Installing docs ..."
-			while IFS="" read -d $'\0' -r f; do
-				treecopy "${f}" "${ED%/}"/usr/share/doc/${PF}/
-			done < <(find -type f \( -name 'readme.txt' -o -name '*.pdf' \) -print0)
-
-			while IFS="" read -d $'\0' -r f; do
-				docompress -x "${f#${ED%/}}"
-			done < <(find "${ED%/}"/usr/share/doc/${PF}/ -type f -name 'readme.txt' -print0)
+	local f t
+	if ! use doc ; then
+		ebegin "Removing pdf docs due to '-doc' USE flag."
+			find -type f -name '*.pdf' -delete || die
 		eend
 	fi
 
 	ebegin "Cleaning before installation..."
-		for f in "${crap[@]}"; do
-			rm -f "${f}" || die
-		done
-		find -type f \( -name '*.o' -o -name '*.pdf' -o -name 'readme.txt' \) -delete || die
+		find -type f -name '*.o' -delete || die
 	eend
 
 	ebegin "Moving files..."
@@ -139,10 +128,10 @@ src_install() {
 				continue
 			fi
 			if [[ -x ${f} ]]; then
-				exeinto /opt/cuda/sdk/"${t}"
+				exeinto "${CUDA_DIR}/sdk/${t}"
 				doexe "${f}"
 			else
-				insinto /opt/cuda/sdk/"${t}"
+				insinto "${CUDA_DIR}/sdk/${t}"
 				doins "${f}"
 			fi
 		done < <(find . -type f -print0)
