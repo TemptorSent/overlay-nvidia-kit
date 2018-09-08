@@ -62,7 +62,7 @@ RDEPEND="
 
 S="${WORKDIR}/"
 
-NV_ROOT="${EPREFIX}/opt/nvidia/${PF}"
+NV_ROOT="${EPREFIX}/opt/nvidia/${P}"
 NV_NATIVE_LIBDIR="${NV_ROOT%/}/lib64"
 NV_COMPAT32_LIBDIR="${NV_ROOT%/}/lib32"
 
@@ -82,7 +82,7 @@ NV_X_MODDIR="xorg/modules"
 nv_do_fixups() {
 
 	use wayland && ! [ -h "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1" ] \
-		&& dosym "$(cd "${NV_NATIVE_LIBDIR}" && ls -1 libnvidia-egl-wayland.so.1.* | tail -1)" "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1"
+		&& dosym "$(cd "${D}${NV_NATIVE_LIBDIR}" && ls -1 libnvidia-egl-wayland.so.1.* | tail -1)" "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1"
 }
 
 docompat32() { use abi_x86_32 && return 0 ; return 1 ; }
@@ -367,8 +367,8 @@ pkg_setup() {
 src_install() {
 	nv_parse_manifest
 
-	dodir "${NV_ROOT}/src/kernel-module"
-	(set +f; cp -r "${NV_KMOD_SRC}"/* "${D}${NV_ROOT}/src/kernel-module" || return 1 ) || die "Could not copy kernel module sources!"
+	dodir "${NV_ROOT}/src/kernel-modules"
+	(set +f; cp -r "${NV_KMOD_SRC}"/* "${D}${NV_ROOT}/src/kernel-modules" || return 1 ) || die "Could not copy kernel module sources!"
 
 
 	[ -f "${D}${NV_ROOT}/bin/nvidia-modprobe" ] && dosym "${NV_ROOT}/bin/nvidia-modprobe" "/usr/bin/nvidia-modprobe"

@@ -20,7 +20,7 @@ DEPEND="
 	kernel_linux? ( virtual/linux-sources )
 "
 
-S="${WORKDIR}/kernel-module"
+S="${WORKDIR}/kernel-modules"
 
 nvidia_drivers_versions_check() {
 	if use kernel_linux && kernel_is ge 4 17; then
@@ -56,60 +56,45 @@ pkg_pretend() {
 }
 
 pkg_setup() {
+	# Check our config is good.
 	nvidia_drivers_versions_check
 
-	# try to turn off distcc and ccache for people that have a problem with it
+	# Try to turn off distcc and ccache for people that have a problem with it.
 	export DISTCC_DISABLE=1
 	export CCACHE_DISABLE=1
 
-	if use kernel_linux; then
-		MODULE_NAMES="nvidia(video:${S}/kernel)"
-		use uvm && MODULE_NAMES+=" nvidia-uvm(video:${S}/kernel)"
-		use kms && MODULE_NAMES+=" nvidia-modeset(video:${S}/kernel) nvidia-drm(video:${S}/kernel)"
+	# Run linux-specific setup.
+	use kernel_linux && pkg_setup_linux
+}
 
-		# This needs to run after MODULE_NAMES (so that the eclass checks
-		# whether the kernel supports loadable modules) but before BUILD_PARAMS
-		# is set (so that KV_DIR is populated).
-		linux-mod_pkg_setup
+pkg_setup_linux() {
 
-		BUILD_PARAMS="IGNORE_CC_MISMATCH=yes V=1 SYSSRC=${KV_DIR} \
-		SYSOUT=${KV_OUT_DIR} CC=$(tc-getBUILD_CC) NV_VERBOSE=1"
+	MODULE_NAMES="nvidia(video:${S})"
+	use uvm && MODULE_NAMES+=" nvidia-uvm(video:${S})"
+	use kms && MODULE_NAMES+=" nvidia-modeset(video:${S}) nvidia-drm(video:${S})"
 
-		# linux-mod_src_compile calls set_arch_to_kernel, which
-		# sets the ARCH to x86 but NVIDIA's wrapping Makefile
-		# expects x86_64 or i386 and then converts it to x86
-		# later on in the build process
-		BUILD_FIXES="ARCH=$(uname -m | sed -e 's/i.86/i386/')"
+	# This needs to run after MODULE_NAMES (so that the eclass checks
+	# whether the kernel supports loadable modules) but before BUILD_PARAMS
+	# is set (so that KV_DIR is populated).
+	linux-mod_pkg_setup
+
+	BUILD_PARAMS="IGNORE_CC_MISMATCH=yes V=1 SYSSRC=${KV_DIR} \
+	SYSOUT=${KV_OUT_DIR} CC=$(tc-getBUILD_CC) NV_VERBOSE=1"
+
+	# linux-mod_src_compile calls set_arch_to_kernel, which
+	# sets the ARCH to x86 but NVIDIA's wrapping Makefile
+	# expects x86_64 or i386 and then converts it to x86
+	# later on in the build process
+	BUILD_FIXES="ARCH=$(uname -m | sed -e 's/i.86/i386/')"
+
+	if kernel_is lt 2 6 9; then
+		eerror "You must build this against 2.6.9 or higher kernels."
 	fi
 
-	if use kernel_linux && kernel_is lt 2 6 9; then
-	dd	eerror "You must build this against 2.6.9 or higher kernels."
-	fi
-
-	# set variables to where files are in the package structure
-	if use kernel_FreeBSD; then
-		use x86-fbsd   && S="${WORKDIR}/${X86_FBSD_NV_PACKAGE}"
-		use amd64-fbsd && S="${WORKDIR}/${AMD64_FBSD_NV_PACKAGE}"
-		NV_DOC="${S}/doc"
-		NV_OBJ="${S}/obj"
-		NV_SRC="${S}/src"
-		NV_MAN="${S}/x11/man"
-		NV_X11="${S}/obj"
-		NV_SOVER=1
-	elif use kernel_linux; then
-		NV_DOC="${S}"
-		NV_OBJ="${S}"
-		NV_SRC="${S}/kernel"
-		NV_MAN="${S}"
-		NV_X11="${S}"
-		NV_SOVER=${PV}
-	else
-		die "Could not determine proper NVIDIA package"
-	fi
 }
 
 src_unpack() {
-	cp -r "${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}/src/kernel-module" "${S}" || die
+	cp -r "${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}/src/kernel-modules" "${S}" || die
 }
 
 
