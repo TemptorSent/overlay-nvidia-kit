@@ -19,7 +19,7 @@ IUSE="kernel_FreeBSD kernel_linux +kms pax_kernel +uvm"
 DEPEND="
 	kernel_linux? ( virtual/linux-sources )
 "
-
+NVDRIVERS_DIR="${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}"
 S="${WORKDIR}/kernel-modules"
 
 nvidia_drivers_versions_check() {
@@ -79,7 +79,7 @@ pkg_setup_linux() {
 	linux-mod_pkg_setup
 
 	BUILD_PARAMS="IGNORE_CC_MISMATCH=yes V=1 SYSSRC=${KV_DIR} \
-	SYSOUT=${KV_OUT_DIR} CC=$(tc-getBUILD_CC) NV_VERBOSE=1"
+		SYSOUT=${KV_OUT_DIR} CC=$(tc-getBUILD_CC) NV_VERBOSE=1"
 
 	# linux-mod_src_compile calls set_arch_to_kernel, which
 	# sets the ARCH to x86 but NVIDIA's wrapping Makefile
@@ -94,7 +94,7 @@ pkg_setup_linux() {
 }
 
 src_unpack() {
-	cp -r "${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}/src/kernel-modules" "${S}" || die
+	cp -r "${NVDRIVERS_DIR}/src/kernel-modules" "${S}" || die
 }
 
 
@@ -127,6 +127,17 @@ src_compile() {
 
 src_install() {
 	if use kernel_linux; then
+		src_install_linux
+	elif use kernel_FreeBSD; then
+		src_install_freebsd
+	fi
+
+	is_final_abi || die "failed to iterate through all ABIs"
+
+	readme.gentoo_create_doc
+}
+
+src_install_linux() {
 		linux-mod_src_install
 
 		# Add the aliases
@@ -137,40 +148,39 @@ src_install() {
 		doins "${FILESDIR}"/nvidia-rmmod.conf
 
 		# Ensures that our device nodes are created when not using X
+		sed -e 's:/opt/bin:'"${NVDRIVERS_DIR}"'/bin:g' "${FILESDIR}/nvidia-udev.sh-r1" > "${T}/nvidia-udev.sh"
 		exeinto "$(get_udevdir)"
-		newexe "${FILESDIR}"/nvidia-udev.sh-r1 nvidia-udev.sh
+		doexe "${T}"/nvidia-udev.sh
 		udev_newrules "${FILESDIR}"/nvidia.udev-rule 99-nvidia.rules
-	elif use kernel_FreeBSD; then
-		if use x86-fbsd; then
-			insinto /boot/modules
-			doins "${S}/src/nvidia.kld"
-		fi
+}
 
-		exeinto /boot/modules
-		doexe "${S}/src/nvidia.ko"
+src_install_freebsd() {
+	if use x86-fbsd; then
+		insinto /boot/modules
+		doins "${S}/src/nvidia.kld"
 	fi
 
-	is_final_abi || die "failed to iterate through all ABIs"
-
-	readme.gentoo_create_doc
+	exeinto /boot/modules
+	doexe "${S}/src/nvidia.ko"
 }
 
 pkg_preinst() {
-	if use kernel_linux; then
-		linux-mod_pkg_preinst
+	use kernel_linux &&pkg_preinst_linux
+}
 
-		local videogroup="$(egetent group video | cut -d ':' -f 3)"
-		if [ -z "${videogroup}" ]; then
-			eerror "Failed to determine the video group gid"
-			die "Failed to determine the video group gid"
-		else
-			sed -i \
-				-e "s:PACKAGE:${PF}:g" \
-				-e "s:VIDEOGID:${videogroup}:" \
-				"${D}"/etc/modprobe.d/nvidia.conf || die
-		fi
+pkg_preinst_linux() {
+	linux-mod_pkg_preinst
+
+	local videogroup="$(egetent group video | cut -d ':' -f 3)"
+	if [ -z "${videogroup}" ]; then
+		eerror "Failed to determine the video group gid"
+		die "Failed to determine the video group gid"
+	else
+		sed -i \
+			-e "s:PACKAGE:${PF}:g" \
+			-e "s:VIDEOGID:${videogroup}:" \
+			"${D}"/etc/modprobe.d/nvidia.conf || die
 	fi
-
 }
 
 pkg_postinst() {

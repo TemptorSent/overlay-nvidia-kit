@@ -401,7 +401,9 @@ src_install() {
 	fi
 
 
-
+	if ! use glvnd ; then
+		dosym "${NV_NATIVE_LIBDIR}/opengl/nvidia" "${EPREFIX}/usr/lib/opengl/nvidia"
+	fi
 
 	is_final_abi || die "failed to iterate through all ABIs"
 
@@ -424,7 +426,7 @@ pkg_preinst() {
 	# Clean the dynamic libGL stuff's home to ensure
 	# we dont have stale libs floating around
 	if [ -d "${ROOT}"/usr/lib/opengl/nvidia ]; then
-		rm -rf "${ROOT}"/usr/lib/opengl/nvidia/*
+		rm -rf "${ROOT}"/usr/lib/opengl/nvidia
 	fi
 	# Make sure we nuke the old nvidia-glx's env.d file
 	if [ -e "${ROOT}"/etc/env.d/09nvidia ]; then
