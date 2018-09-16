@@ -193,7 +193,7 @@ nv_install_vulkan_icd() {
 # <dir> <file> <perms> <MODULE:>
 nv_install_outputclass_config() {
 	nv_install "${1}" "$name" "$perms" "$f4"
-	sed -e '/EndSection/ i\\tModulePath "'"${NV_NATIVE_LIBDIR}"'"\n\tModulePath "'"${NV_NATIVE_LIBDIR}/${NV_X_MODDIR}"'"\n\tModulePath "'"${NV_NATIVE_LIBDIR}/${NV_OPENGL_VEND_DIR}"'"' \
+	sed -e '/EndSection/ i\\tModulePath "'"${NV_NATIVE_LIBDIR}"'"\n\tModulePath "'"${NV_NATIVE_LIBDIR}/${NV_X_MODDIR}"'"\n\tModulePath "'"${NV_NATIVE_LIBDIR}/${NV_OPENGL_VEND_DIR}/extensions"'"' \
 		-i "${D}${NV_ROOT}/${1#/}/${name}"
 }
 
