@@ -27,7 +27,8 @@ RESTRICT="bindist mirror strip"
 EMULTILIB_PKG="true"
 
 NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +vdpau +xutils +xdriver"
-IUSE="+glvnd ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
+IUSE_DUMMY="static-libs driver tools"
+IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
 
 COMMON="
@@ -410,7 +411,7 @@ src_install() {
 	readme.gentoo_create_doc
 
 	# Setup and env.d file
-	ldpath="${NV_NATIVE_LIBDIR}"
+	ldpath="${NV_NATIVE_LIBDIR}:${NV_NATIVE_LIBDIR}/tls"
 	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}"
 	printf -- "LD_PATH=\"${ld_path}\"\n" > "${T}/09nvidia"
 	doenvd "${T}/09nvidia"
