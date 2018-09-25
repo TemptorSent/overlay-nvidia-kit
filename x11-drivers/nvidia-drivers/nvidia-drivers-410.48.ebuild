@@ -15,15 +15,10 @@ X86_FBSD_NV_PACKAGE="NVIDIA-FreeBSD-x86-${PV}"
 X86_NV_PACKAGE="NVIDIA-Linux-x86-${PV}"
 
 NV_URI="http://download.nvidia.com/XFree86/"
-
-NV_SRC_URI="
+SRC_URI="
 	amd64-fbsd? ( ${NV_URI}FreeBSD-x86_64/${PV}/${AMD64_FBSD_NV_PACKAGE}.tar.gz )
 	amd64? ( ${NV_URI}Linux-x86_64/${PV}/${AMD64_NV_PACKAGE}.run )
 "
-
-# drivers from cuda releases don't have independent src-uris, so we use sources installed under /opt/nvidia/distfiles
-SRC_URI=""
-NV_CUDA_VER="10.0.130"
 
 LICENSE="GPL-2 NVIDIA-r2"
 SLOT="0/${PV%.*}"
@@ -31,7 +26,7 @@ KEYWORDS="-* ~amd64 ~amd64-fbsd"
 RESTRICT="bindist mirror strip"
 EMULTILIB_PKG="true"
 
-NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +optix +raytracing +vdpau +xutils +xdriver"
+NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +vdpau +xutils +xdriver"
 IUSE_DUMMY="static-libs driver tools"
 IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
@@ -52,12 +47,6 @@ DEPEND="
 	${COMMON}
 	kernel_linux? ( virtual/linux-sources )
 "
-if [ -z "${SRC_URI}" ] ; then
-	DEPEND="${DEPEND}
-		=dev-util/nvidia-cuda-toolkit-${NV_CUDA_VER}[copy-bundled-drivers]
-	"
-fi
-
 RDEPEND="
 	${COMMON}
 	acpi? ( sys-power/acpid )
@@ -77,9 +66,6 @@ S="${WORKDIR}/"
 NV_ROOT="${EPREFIX}/opt/nvidia/${P}"
 NV_NATIVE_LIBDIR="${NV_ROOT%/}/lib64"
 NV_COMPAT32_LIBDIR="${NV_ROOT%/}/lib32"
-
-# Used as source if SRC_URI is empty for CUDA packaged drivers
-NV_DIST_DRIVER_PATH="${EPREFIX}/opt/nvidia/distfiles/${AMD64_NV_PACKAGE}.run"
 
 QA_PREBUILT="${NV_ROOT#${EPREFIX}/}/*"
 
@@ -108,7 +94,7 @@ nv_use() {
 	local mymodule
 	case "$1" in 
 		installer) return 0;;
-		compiler|gpgpucomp) mymodule="gpgpu" ;;
+		compiler) mymodule="gpgpu" ;;
 		*) mymodule="$1" ;;
 	esac
 
@@ -379,14 +365,6 @@ pkg_setup() {
 	fi
 }
 
-src_unpack() {
-	if [ -z "${SRC_URI}" ] && [ -f "${NV_DIST_DRIVER_PATH}" ] ; then
-		unpacker "${NV_DIST_DRIVER_PATH}"
-	else
-		default
-	fi
-}
-
 src_install() {
 	nv_parse_manifest
 
@@ -434,7 +412,7 @@ src_install() {
 
 	# Setup and env.d file
 	ldpath="${NV_NATIVE_LIBDIR}:${NV_NATIVE_LIBDIR}/tls"
-	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}"
+	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}:${NV_COMPAT32_LIBDIR}/tls"
 	printf -- "LD_PATH=\"${ld_path}\"\n" > "${T}/09nvidia"
 	doenvd "${T}/09nvidia"
 

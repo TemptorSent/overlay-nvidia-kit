@@ -412,7 +412,7 @@ src_install() {
 
 	# Setup and env.d file
 	ldpath="${NV_NATIVE_LIBDIR}:${NV_NATIVE_LIBDIR}/tls"
-	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}"
+	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}:${NV_COMPAT32_LIBDIR}/tls"
 	printf -- "LD_PATH=\"${ld_path}\"\n" > "${T}/09nvidia"
 	doenvd "${T}/09nvidia"
 
