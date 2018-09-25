@@ -15,10 +15,12 @@ X86_FBSD_NV_PACKAGE="NVIDIA-FreeBSD-x86-${PV}"
 X86_NV_PACKAGE="NVIDIA-Linux-x86-${PV}"
 
 NV_URI="http://download.nvidia.com/XFree86/"
-SRC_URI="
-	amd64-fbsd? ( ${NV_URI}FreeBSD-x86_64/${PV}/${AMD64_FBSD_NV_PACKAGE}.tar.gz )
-	amd64? ( ${NV_URI}Linux-x86_64/${PV}/${AMD64_NV_PACKAGE}.run )
-"
+#SRC_URI="
+#	amd64-fbsd? ( ${NV_URI}FreeBSD-x86_64/${PV}/${AMD64_FBSD_NV_PACKAGE}.tar.gz )
+#	amd64? ( ${NV_URI}Linux-x86_64/${PV}/${AMD64_NV_PACKAGE}.run )
+#"
+SRC_URI=""
+NV_DISTFILES_PATH="/opt/nvidia/distfiles/"
 
 LICENSE="GPL-2 NVIDIA-r2"
 SLOT="0/${PV%.*}"
@@ -362,6 +364,27 @@ pkg_setup() {
 		NV_KMOD_SRC="${S}/kernel"
 	else
 		die "Could not determine proper NVIDIA kernel modules' source path in package."
+	fi
+}
+
+src_unpack() {
+	if [ -z "${SRC_URI}" ] ; then
+		if [ -d "${NV_DISTFILES_PATH}" ] ; then
+			use amd64 && NV_PACKAGE="${AMD64_NV_PACKAGE}"
+			use amd64-fbsd && NV_PACKAGE="${AMD64_FBSD_NV_PACKAGE}"
+			use arm64 && NV_PACKAGE="${ARM64_NV_PACKAGE}"
+			use x86 && NV_PACKAGE="${X86_NV_PACKAGE}"
+			use x86-fbsd && NV_PACKAGE="${X86_FBSD_NV_PACKAGE}"
+			if [ -f "${NV_DISTFILES_PATH}/${NV_PACKAGE}.run" ] ; then
+				unpacker "${NV_DISTFILES_PATH}/${NV_PACKAGE}.run"
+			else
+				die "No '${NV_PACKAGE}.run' exists in '${NV_DISTFILES_PATH}'."
+			fi
+		else
+			die "No SRC_URI given and no '${NV_DISTFILES_PATH}' directory exists."
+		fi
+	else
+		default
 	fi
 }
 
