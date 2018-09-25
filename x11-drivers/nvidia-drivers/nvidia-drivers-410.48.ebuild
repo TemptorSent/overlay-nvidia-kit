@@ -15,10 +15,7 @@ X86_FBSD_NV_PACKAGE="NVIDIA-FreeBSD-x86-${PV}"
 X86_NV_PACKAGE="NVIDIA-Linux-x86-${PV}"
 
 NV_URI="http://download.nvidia.com/XFree86/"
-#SRC_URI="
-#	amd64-fbsd? ( ${NV_URI}FreeBSD-x86_64/${PV}/${AMD64_FBSD_NV_PACKAGE}.tar.gz )
-#	amd64? ( ${NV_URI}Linux-x86_64/${PV}/${AMD64_NV_PACKAGE}.run )
-#"
+# No SRC_URI for cuda-bundled drivers
 SRC_URI=""
 NV_DISTFILES_PATH="/opt/nvidia/distfiles/"
 
@@ -29,6 +26,7 @@ RESTRICT="bindist mirror strip"
 EMULTILIB_PKG="true"
 
 NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +vdpau +xutils +xdriver"
+if [ ${PV%%.*} -ge 400 ] ; then NV_PKG_USE="${NV_PKG_USE} +optix +raytracing" ; fi
 IUSE_DUMMY="static-libs driver tools"
 IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
@@ -96,7 +94,7 @@ nv_use() {
 	local mymodule
 	case "$1" in 
 		installer) return 0;;
-		compiler) mymodule="gpgpu" ;;
+		compiler|gpgpucomp) mymodule="gpgpu" ;;
 		*) mymodule="$1" ;;
 	esac
 
@@ -384,7 +382,7 @@ src_unpack() {
 			die "No SRC_URI given and no '${NV_DISTFILES_PATH}' directory exists."
 		fi
 	else
-		default
+		unpacker
 	fi
 }
 

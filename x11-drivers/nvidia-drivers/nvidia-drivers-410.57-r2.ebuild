@@ -28,6 +28,7 @@ RESTRICT="bindist mirror strip"
 EMULTILIB_PKG="true"
 
 NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +vdpau +xutils +xdriver"
+if [ ${PV%%.*} -ge 400 ] ; then NV_PKG_USE="${NV_PKG_USE} +optix +raytracing" ; fi
 IUSE_DUMMY="static-libs driver tools"
 IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
@@ -95,7 +96,7 @@ nv_use() {
 	local mymodule
 	case "$1" in 
 		installer) return 0;;
-		compiler) mymodule="gpgpu" ;;
+		compiler|gpgpucomp) mymodule="gpgpu" ;;
 		*) mymodule="$1" ;;
 	esac
 
@@ -383,7 +384,7 @@ src_unpack() {
 			die "No SRC_URI given and no '${NV_DISTFILES_PATH}' directory exists."
 		fi
 	else
-		default
+		unpacker
 	fi
 }
 
