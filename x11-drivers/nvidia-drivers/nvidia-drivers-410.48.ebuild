@@ -434,7 +434,7 @@ src_install() {
 	# Setup and env.d file
 	ldpath="${NV_NATIVE_LIBDIR}:${NV_NATIVE_LIBDIR}/tls"
 	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}:${NV_COMPAT32_LIBDIR}/tls"
-	printf -- "LD_PATH=\"${ldpath}\"\n" > "${T}/09nvidia"
+	printf -- "LDPATH=\"${ldpath}\"\n" > "${T}/09nvidia"
 	doenvd "${T}/09nvidia"
 
 	# Run fixups specific to this driver (defined at top)
