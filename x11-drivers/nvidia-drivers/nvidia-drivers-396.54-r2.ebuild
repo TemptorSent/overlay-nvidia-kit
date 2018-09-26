@@ -188,7 +188,7 @@ nv_install_modprobe() {
 # <dir> <template> <perms> <MODULE:>
 nv_install_vulkan_icd() {
 	rm -f "nvidia_icd.json" || die
-	sed -e 's:__NV_VK_ICD__:${NV_NATIVE_LIBDIR}/libGLX_nvidia.so.0:g' nvidia_icd.json.template > nvidia_icd.json || die
+	sed -e 's:__NV_VK_ICD__:'"${NV_NATIVE_LIBDIR}"'/libGLX_nvidia.so.0:g' nvidia_icd.json.template > nvidia_icd.json || die
 	nv_install "$1" "nvidia_icd.json" "$3" "$4"
 }
 
