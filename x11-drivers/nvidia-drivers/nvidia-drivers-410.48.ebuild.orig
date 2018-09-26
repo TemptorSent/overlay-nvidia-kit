@@ -15,10 +15,8 @@ X86_FBSD_NV_PACKAGE="NVIDIA-FreeBSD-x86-${PV}"
 X86_NV_PACKAGE="NVIDIA-Linux-x86-${PV}"
 
 NV_URI="http://download.nvidia.com/XFree86/"
-SRC_URI="
-	amd64-fbsd? ( ${NV_URI}FreeBSD-x86_64/${PV}/${AMD64_FBSD_NV_PACKAGE}.tar.gz )
-	amd64? ( ${NV_URI}Linux-x86_64/${PV}/${AMD64_NV_PACKAGE}.run )
-"
+# No SRC_URI for cuda-bundled drivers
+SRC_URI=""
 NV_DISTFILES_PATH="/opt/nvidia/distfiles/"
 
 LICENSE="GPL-2 NVIDIA-r2"
@@ -390,9 +388,6 @@ src_unpack() {
 
 src_install() {
 	nv_parse_manifest
-
-	# Remove symlink libwfb.so to avoid problems. (per nvidia docs)
-	rm "${D}${NV_ROOT}/$(get_libdir)/${NV_X_MODDIR}/libwfb.so"
 
 	dodir "${NV_ROOT}/src/kernel-modules"
 	(set +f; cp -r "${NV_KMOD_SRC}"/* "${D}${NV_ROOT}/src/kernel-modules" || return 1 ) || die "Could not copy kernel module sources!"

@@ -391,6 +391,9 @@ src_unpack() {
 src_install() {
 	nv_parse_manifest
 
+	# Remove symlink libwfb.so to avoid problems. (per nvidia docs)
+	rm "${D}${NV_ROOT}/$(get_libdir)/${NV_X_MODDIR}/libwfb.so"
+
 	dodir "${NV_ROOT}/src/kernel-modules"
 	(set +f; cp -r "${NV_KMOD_SRC}"/* "${D}${NV_ROOT}/src/kernel-modules" || return 1 ) || die "Could not copy kernel module sources!"
 
