@@ -28,7 +28,9 @@ RESTRICT="bindist mirror strip"
 EMULTILIB_PKG="true"
 
 NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +vdpau +xutils +xdriver"
-if [ ${PV%%.*} -ge 400 ] ; then NV_PKG_USE="${NV_PKG_USE} +optix +raytracing" ; fi
+if [ ${PV%%.*} -ge 400 ] ; then NV_PKG_USE="${NV_PKG_USE} +optix +opticalflow +raytracing" ; fi
+if [ ${PV%%.*} -ge 418 ] ; then NV_PKG_USE="${NV_PKG_USE} +opticalflow" ; fi
+
 IUSE_DUMMY="static-libs driver tools"
 IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
@@ -391,8 +393,8 @@ src_unpack() {
 src_install() {
 	nv_parse_manifest
 
-	# Remove symlink libwfb.so to avoid problems. (per nvidia docs)
-	rm "${D}${NV_ROOT}/$(get_libdir)/${NV_X_MODDIR}/libwfb.so"
+	# Remove symlink libwfb.so if it exists to avoid problems. (per nvidia docs)
+	rm -f "${D}${NV_ROOT}/$(get_libdir)/${NV_X_MODDIR}/libwfb.so"
 
 	dodir "${NV_ROOT}/src/kernel-modules"
 	(set +f; cp -r "${NV_KMOD_SRC}"/* "${D}${NV_ROOT}/src/kernel-modules" || return 1 ) || die "Could not copy kernel module sources!"
