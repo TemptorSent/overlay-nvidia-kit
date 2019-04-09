@@ -32,7 +32,7 @@ if [ ${PV%%.*} -ge 400 ] ; then NV_PKG_USE="${NV_PKG_USE} +optix +opticalflow +r
 if [ ${PV%%.*} -ge 418 ] ; then NV_PKG_USE="${NV_PKG_USE} +opticalflow" ; fi
 
 IUSE_DUMMY="static-libs driver tools"
-IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
+IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} compat32 acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
 
 COMMON="
@@ -90,7 +90,8 @@ nv_do_fixups() {
 		&& dosym "$(cd "${D}${NV_NATIVE_LIBDIR}" && ls -1 libnvidia-egl-wayland.so.1.* | tail -1)" "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1"
 }
 
-docompat32() { use abi_x86_32 && return 0 ; return 1 ; }
+# Install 32 bit compat libs if we have the compat32 use flage enabled or have the abi_x86_32 flag set
+docompat32() { use compat32 && return 0; use abi_x86_32 && return 0 ; return 1 ; }
 
 # Check if we should use a given nvidia MODULE:<arg>
 # Convert module names to use-flags as appropriate
