@@ -63,6 +63,7 @@ RDEPEND="
 		sys-libs/zlib[${MULTILIB_USEDEP}]
 	)
 "
+PDEPEND="=x11-drivers/nvidia-kernel-modules-${PV}*"
 
 
 S="${WORKDIR}/"
