@@ -17,6 +17,7 @@ RESTRICT="bindist mirror"
 IUSE="kernel_FreeBSD kernel_linux +kms pax_kernel +uvm"
 
 DEPEND="
+	=x11-drivers/nvidia-drivers-${PV}*
 	kernel_linux? ( virtual/linux-sources )
 "
 NVDRIVERS_DIR="${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}"
