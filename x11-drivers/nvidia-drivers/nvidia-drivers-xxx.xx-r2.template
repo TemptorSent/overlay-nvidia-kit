@@ -19,7 +19,6 @@ SRC_URI="
 	amd64-fbsd? ( ${NV_URI}FreeBSD-x86_64/${PV}/${AMD64_FBSD_NV_PACKAGE}.tar.gz )
 	amd64? ( ${NV_URI}Linux-x86_64/${PV}/${AMD64_NV_PACKAGE}.run )
 "
-NV_DISTFILES_PATH="/opt/nvidia/distfiles/"
 
 LICENSE="GPL-2 NVIDIA-r2"
 SLOT="0/${PV%.*}"
@@ -31,8 +30,8 @@ NV_PKG_USE="+opengl +egl +gpgpu +nvpd +nvifr +nvfbc +nvcuvid +nvml +encodeapi +v
 if [ ${PV%%.*} -ge 400 ] ; then NV_PKG_USE="${NV_PKG_USE} +optix +opticalflow +raytracing" ; fi
 if [ ${PV%%.*} -ge 418 ] ; then NV_PKG_USE="${NV_PKG_USE} +opticalflow" ; fi
 
-IUSE_DUMMY="static-libs driver tools"
-IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} compat32 acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
+IUSE_DUMMY="static-libs driver"
+IUSE="+glvnd ${IUSE_DUMMY} ${NV_PKG_USE} tools compat32 acpi +opencl +cuda kernel_FreeBSD kernel_linux +uvm +wayland +X"
 
 
 COMMON="
@@ -69,6 +68,7 @@ PDEPEND="=x11-drivers/nvidia-kernel-modules-${PV}*"
 S="${WORKDIR}/"
 
 NV_ROOT="${EPREFIX}/opt/nvidia/${P}"
+NV_DISTFILES_PATH="${NV_ROOT}/distfiles/"
 NV_NATIVE_LIBDIR="${NV_ROOT%/}/lib64"
 NV_COMPAT32_LIBDIR="${NV_ROOT%/}/lib32"
 
@@ -85,6 +85,10 @@ NV_OPENGL_VEND_DIR="opengl/nvidia"
 NV_OPENCL_VEND_DIR="OpenCL/nvidia"
 NV_X_MODDIR="xorg/modules"
 
+# Maximum supported kernel version in form major.minor
+: "${NV_MAX_KERNEL_VERSION:=5.0}"
+
+# Fixups for issues with particular versions of the package.
 nv_do_fixups() {
 
 	use wayland && ! [ -h "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1" ] \
@@ -98,7 +102,7 @@ docompat32() { use compat32 && return 0; use abi_x86_32 && return 0 ; return 1 ;
 # Convert module names to use-flags as appropriate
 nv_use() {
 	local mymodule
-	case "$1" in 
+	case "$1" in
 		installer) return 0;;
 		compiler|gpgpucomp) mymodule="gpgpu" ;;
 		*) mymodule="$1" ;;
@@ -110,7 +114,7 @@ nv_use() {
 
 # Determine whether we should install GLVND, NON_GLVND, or neither version.
 _nv_glvnd() {
-	case "$1" in 
+	case "$1" in
 		GLVND) use glvnd && return 1 ;; # We want to use the system libglvnd, so skip installing from packaging.
 		NON_GLVND) ! use glvnd && return 0 ;;
 	esac
@@ -198,9 +202,17 @@ nv_install_vulkan_icd() {
 
 # <dir> <file> <perms> <MODULE:>
 nv_install_outputclass_config() {
-	nv_install "${1}" "$name" "$perms" "$f4"
+	nv_install "${1}" "${2}" "${3}" "${4}"
 	sed -e '/EndSection/ i\\tModulePath "'"${NV_NATIVE_LIBDIR}"'"\n\tModulePath "'"${NV_NATIVE_LIBDIR}/${NV_X_MODDIR}"'"\n\tModulePath "'"${NV_NATIVE_LIBDIR}/${NV_OPENGL_VEND_DIR}/extensions"'"' \
 		-i "${D}${NV_ROOT}/${1#/}/${name}"
+}
+
+# <dir> <file> <perms> <MODULE:>
+nv_install_desktop() {
+	nv_install "${1%/*}" "${2}" "${3}" "${4%}"
+	sed -e 's|__UTILS_PATH__|'"${NV_ROOT}/bin"'|' \
+		-e 's|__PIXMAP_PATH__|'"${NV_ROOT}/${1/applications/doc}"'|' \
+		-i "${D}${NV_ROOT}/${1%/*}/${name}"
 }
 
 # Run from root of extracted nvidia-drivers package.
@@ -286,7 +298,7 @@ nv_parse_manifest() {
 			#<file> <perms> NVIDIA_MODPROBE_MANPAGE <subdir> MODULE:<module>
 			OPENGL_HEADER) nv_install "${NV_INCDIR}/${f4%/}" "$name" "$perms" "$f5" ;;
 			APPLICATION_PROFILE) nv_install "${NV_SHAREDIR}/nvidia/${f4%/}" "$name" "$perms" "$f5" ;;
-			DOT_DESKTOP) nv_install "${NV_SHAREDIR}/applications/${f4%/}" "$name" "$perms" "$f5" ;;
+			DOT_DESKTOP) nv_install_desktop "${NV_SHAREDIR}/applications/${f4%/}" "$name" "$perms" "$f5" ;;
 			NVIDIA_MODPROBE) nv_install_modprobe "${NV_BINDIR}" "$name" "$perms" "$f5" ;;
 			NVIDIA_MODPROBE_MANPAGE|MANPAGE) nv_install "${NV_SHAREDIR}/man/${f4%/}" "$name" "$perms" "$f5" ;;
 			DOCUMENTATION) nv_install "${NV_SHAREDIR}/doc/${f4%/}" "$name" "$perms" "$f5" ;;
@@ -325,11 +337,11 @@ nvidia_drivers_versions_check() {
 		die "Unexpected \${DEFAULT_ABI} = ${DEFAULT_ABI}"
 	fi
 
-	if use kernel_linux && kernel_is ge 4 17; then
+	if use kernel_linux && kernel_is ge ${NV_MAX_KERNEL_VERSION%%.*} ${NV_MAX_KERNEL_VERSION#*.}; then
 		ewarn "Gentoo supports kernels which are supported by NVIDIA"
 		ewarn "which are limited to the following kernels:"
-		ewarn "<sys-kernel/gentoo-sources-4.17"
-		ewarn "<sys-kernel/vanilla-sources-4.17"
+		ewarn "<sys-kernel/gentoo-sources-${NV_MAX_KERNEL_VERSION}"
+		ewarn "<sys-kernel/vanilla-sources-${NV_MAX_KERNEL_VERSION}"
 		ewarn ""
 		ewarn "You are free to utilize epatch_user to provide whatever"
 		ewarn "support you feel is appropriate, but will not receive"
@@ -393,18 +405,30 @@ src_unpack() {
 }
 
 src_install() {
+
+	# Parse our manifest file and install to our destroot.
 	nv_parse_manifest
 
 	# Remove symlink libwfb.so if it exists to avoid problems. (per nvidia docs)
 	rm -f "${D}${NV_ROOT}/$(get_libdir)/${NV_X_MODDIR}/libwfb.so"
 
+	# Install source for kernel modules
 	dodir "${NV_ROOT}/src/kernel-modules"
 	(set +f; cp -r "${NV_KMOD_SRC}"/* "${D}${NV_ROOT}/src/kernel-modules" || return 1 ) || die "Could not copy kernel module sources!"
 
-
+	# Link nvidia-modprobe utility to /usr/bin if installed.
 	[ -f "${D}${NV_ROOT}/bin/nvidia-modprobe" ] && dosym "${NV_ROOT}/bin/nvidia-modprobe" "/usr/bin/nvidia-modprobe"
 
+	# If 'tools' flag is enabled, link nvidia-settings utility into /usr/bin, install an xinitrc.d file to start it, and link it's desktop file.
+	if use tools; then
+		[ -f "${D}${NV_ROOT}/bin/nvidia-settings" ] && dosym "${NV_ROOT}/bin/nvidia-settings" "/usr/bin/nvidia-modprobe"
+		exeinto /etc/X11/xinit/xinitrc.d
+		newexe "${FILESDIR}"/95-nvidia-settings.xinitrc 95-nvidia-settings
+		dosym "${NV_ROOT}/share/applications/nvidia-settings.desktop" "/usr/share/applications/nvidia-settings.desktop"
+	fi
 
+	# If 'X' flag is enabled, link nvidia-drm-outputclass.conf into system xorg.conf.d directory (xorg 1.16 and up),
+	# and link nvidia_icd.json into system vulkan/icd.d directory.
 	if use X; then
 
 		# Xorg nvidia.conf
@@ -415,14 +439,17 @@ src_install() {
 		dosym "${NV_ROOT}/share/vulkan/icd.d/nvidia_icd.json" "/etc/vulkan/icd.d/nvidia_icd.json"
 	fi
 
+	# If 'egl' flag is enabled, link 10_nvidia.json into the system egl_vendor.d directory.
 	use egl && dosym "${NV_ROOT}/share/glvnd/egl_vendor.d/10_nvidia.json" "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
 
+	# If 'egl' flag is enabled, link 10_nvidia_wayland.json into the system egl_external_platform.d directory.
 	use wayland && dosym "${NV_ROOT}/share/egl/egl_external_platform.d/10_nvidia_wayland.json" "/usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json"
 
 	# OpenCL ICD for NVIDIA
+	# If 'opencl' or 'cuda' flags are enabled, link nvdidia.icd into system OpenCL/vendors directory.
 	( use opencl || use cuda ) && dosym "${NV_ROOT}/share/OpenCL/vendors/nvidia.icd" "/etc/OpenCL/vendors/nvidia.icd"
 
-
+	# On linux kernels, install nvidia-persistenced init and conf files after fixing up paths.
 	if use kernel_linux; then
 		for filename in nvidia-{smi,persistenced}.init ; do
 			sed -e 's:/opt/bin:'"${NV_ROOT}"'/bin:g' "${FILESDIR}/${filename}" > "${T}/${filename}"
@@ -431,7 +458,7 @@ src_install() {
 		newconfd "${FILESDIR}/nvidia-persistenced.conf" nvidia-persistenced
 	fi
 
-
+	# If we're not using glvnd support, link nvidia opengl vendor directory into system opengl vendor directory
 	if ! use glvnd ; then
 		dosym "${NV_NATIVE_LIBDIR}/opengl/nvidia" "${EPREFIX}/usr/lib/opengl/nvidia"
 	fi
@@ -440,7 +467,7 @@ src_install() {
 
 	readme.gentoo_create_doc
 
-	# Setup and env.d file
+	# Setup an env.d file with appropriate lib paths.
 	ldpath="${NV_NATIVE_LIBDIR}:${NV_NATIVE_LIBDIR}/tls"
 	docompat32 && ldpath+=":${NV_COMPAT32_LIBDIR}:${NV_COMPAT32_LIBDIR}/tls"
 	printf -- "LDPATH=\"${ldpath}\"\n" > "${T}/09nvidia"
@@ -467,7 +494,7 @@ pkg_preinst() {
 
 pkg_postinst() {
 
-	# Switch to the nvidia implementation
+	# If we'e not using glvnd, switch to the nvidia opengl vendor implementation
 	! use glvnd && use X && "${ROOT}"/usr/bin/eselect opengl set --use-old nvidia
 	use opencl && "${ROOT}"/usr/bin/eselect opencl set --use-old ocl-icd
 
