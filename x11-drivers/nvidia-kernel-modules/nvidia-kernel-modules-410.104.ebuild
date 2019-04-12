@@ -17,17 +17,18 @@ RESTRICT="bindist mirror"
 IUSE="kernel_FreeBSD kernel_linux +kms +uvm"
 
 DEPEND="
+	=x11-drivers/nvidia-drivers-${PV}*
 	kernel_linux? ( virtual/linux-sources )
 "
-
-S="${WORKDIR}/"
+NVDRIVERS_DIR="${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}"
+S="${WORKDIR}/kernel-modules"
 
 nvidia_drivers_versions_check() {
-	if use kernel_linux && kernel_is ge 4 17; then
+	if use kernel_linux && kernel_is ge 5 1; then
 		ewarn "Gentoo supports kernels which are supported by NVIDIA"
 		ewarn "which are limited to the following kernels:"
-		ewarn "<sys-kernel/gentoo-sources-4.17"
-		ewarn "<sys-kernel/vanilla-sources-4.17"
+		ewarn "<sys-kernel/gentoo-sources-5.1"
+		ewarn "<sys-kernel/vanilla-sources-5.1"
 		ewarn ""
 		ewarn "You are free to utilize epatch_user to provide whatever"
 		ewarn "support you feel is appropriate, but will not receive"
@@ -56,60 +57,45 @@ pkg_pretend() {
 }
 
 pkg_setup() {
+	# Check our config is good.
 	nvidia_drivers_versions_check
 
-	# try to turn off distcc and ccache for people that have a problem with it
+	# Try to turn off distcc and ccache for people that have a problem with it.
 	export DISTCC_DISABLE=1
 	export CCACHE_DISABLE=1
 
-	if use kernel_linux; then
-		MODULE_NAMES="nvidia(video:${S}/kernel)"
-		use uvm && MODULE_NAMES+=" nvidia-uvm(video:${S}/kernel)"
-		use kms && MODULE_NAMES+=" nvidia-modeset(video:${S}/kernel) nvidia-drm(video:${S}/kernel)"
+	# Run linux-specific setup.
+	use kernel_linux && pkg_setup_linux
+}
 
-		# This needs to run after MODULE_NAMES (so that the eclass checks
-		# whether the kernel supports loadable modules) but before BUILD_PARAMS
-		# is set (so that KV_DIR is populated).
-		linux-mod_pkg_setup
+pkg_setup_linux() {
 
-		BUILD_PARAMS="IGNORE_CC_MISMATCH=yes V=1 SYSSRC=${KV_DIR} \
+	MODULE_NAMES="nvidia(video:${S})"
+	use uvm && MODULE_NAMES+=" nvidia-uvm(video:${S})"
+	use kms && MODULE_NAMES+=" nvidia-modeset(video:${S}) nvidia-drm(video:${S})"
+
+	# This needs to run after MODULE_NAMES (so that the eclass checks
+	# whether the kernel supports loadable modules) but before BUILD_PARAMS
+	# is set (so that KV_DIR is populated).
+	linux-mod_pkg_setup
+
+	BUILD_PARAMS="IGNORE_CC_MISMATCH=yes V=1 SYSSRC=${KV_DIR} \
 		SYSOUT=${KV_OUT_DIR} CC=$(tc-getBUILD_CC) NV_VERBOSE=1"
 
-		# linux-mod_src_compile calls set_arch_to_kernel, which
-		# sets the ARCH to x86 but NVIDIA's wrapping Makefile
-		# expects x86_64 or i386 and then converts it to x86
-		# later on in the build process
-		BUILD_FIXES="ARCH=$(uname -m | sed -e 's/i.86/i386/')"
+	# linux-mod_src_compile calls set_arch_to_kernel, which
+	# sets the ARCH to x86 but NVIDIA's wrapping Makefile
+	# expects x86_64 or i386 and then converts it to x86
+	# later on in the build process
+	BUILD_FIXES="ARCH=$(uname -m | sed -e 's/i.86/i386/')"
+
+	if kernel_is lt 2 6 9; then
+		eerror "You must build this against 2.6.9 or higher kernels."
 	fi
 
-	if use kernel_linux && kernel_is lt 2 6 9; then
-	dd	eerror "You must build this against 2.6.9 or higher kernels."
-	fi
-
-	# set variables to where files are in the package structure
-	if use kernel_FreeBSD; then
-		use x86-fbsd   && S="${WORKDIR}/${X86_FBSD_NV_PACKAGE}"
-		use amd64-fbsd && S="${WORKDIR}/${AMD64_FBSD_NV_PACKAGE}"
-		NV_DOC="${S}/doc"
-		NV_OBJ="${S}/obj"
-		NV_SRC="${S}/src"
-		NV_MAN="${S}/x11/man"
-		NV_X11="${S}/obj"
-		NV_SOVER=1
-	elif use kernel_linux; then
-		NV_DOC="${S}"
-		NV_OBJ="${S}"
-		NV_SRC="${S}/kernel"
-		NV_MAN="${S}"
-		NV_X11="${S}"
-		NV_SOVER=${PV}
-	else
-		die "Could not determine proper NVIDIA package"
-	fi
 }
 
 src_unpack() {
-	cp -r "${EPREFIX}/opt/nvidia-drivers-${PV}/${NV_SRC}" "${S}" || die
+	cp -r "${NVDRIVERS_DIR}/src/kernel-modules" "${S}" || die
 }
 
 
@@ -136,6 +122,17 @@ src_compile() {
 
 src_install() {
 	if use kernel_linux; then
+		src_install_linux
+	elif use kernel_FreeBSD; then
+		src_install_freebsd
+	fi
+
+	is_final_abi || die "failed to iterate through all ABIs"
+
+	readme.gentoo_create_doc
+}
+
+src_install_linux() {
 		linux-mod_src_install
 
 		# Add the aliases
@@ -146,40 +143,39 @@ src_install() {
 		newins "${FILESDIR}"/nvidia-rmmod.conf.modprobe nvidia-rmmod.conf
 
 		# Ensures that our device nodes are created when not using X
+		sed -e 's:/opt/bin:'"${NVDRIVERS_DIR}"'/bin:g' "${FILESDIR}/nvidia-udev.sh" > "${T}/nvidia-udev.sh"
 		exeinto "$(get_udevdir)"
-		newexe "${FILESDIR}"/nvidia-udev.sh nvidia-udev.sh
+		doexe "${T}"/nvidia-udev.sh
 		udev_newrules "${FILESDIR}"/nvidia.udev-rule 99-nvidia.rules
-	elif use kernel_FreeBSD; then
-		if use x86-fbsd; then
-			insinto /boot/modules
-			doins "${S}/src/nvidia.kld"
-		fi
+}
 
-		exeinto /boot/modules
-		doexe "${S}/src/nvidia.ko"
+src_install_freebsd() {
+	if use x86-fbsd; then
+		insinto /boot/modules
+		doins "${S}/src/nvidia.kld"
 	fi
 
-	is_final_abi || die "failed to iterate through all ABIs"
-
-	readme.gentoo_create_doc
+	exeinto /boot/modules
+	doexe "${S}/src/nvidia.ko"
 }
 
 pkg_preinst() {
-	if use kernel_linux; then
-		linux-mod_pkg_preinst
+	use kernel_linux &&pkg_preinst_linux
+}
 
-		local videogroup="$(egetent group video | cut -d ':' -f 3)"
-		if [ -z "${videogroup}" ]; then
-			eerror "Failed to determine the video group gid"
-			die "Failed to determine the video group gid"
-		else
-			sed -i \
-				-e "s:PACKAGE:${PF}:g" \
-				-e "s:VIDEOGID:${videogroup}:" \
-				"${D}"/etc/modprobe.d/nvidia.conf || die
-		fi
+pkg_preinst_linux() {
+	linux-mod_pkg_preinst
+
+	local videogroup="$(egetent group video | cut -d ':' -f 3)"
+	if [ -z "${videogroup}" ]; then
+		eerror "Failed to determine the video group gid"
+		die "Failed to determine the video group gid"
+	else
+		sed -i \
+			-e "s:PACKAGE:${PF}:g" \
+			-e "s:VIDEOGID:${videogroup}:" \
+			"${D}"/etc/modprobe.d/nvidia.conf || die
 	fi
-
 }
 
 pkg_postinst() {
