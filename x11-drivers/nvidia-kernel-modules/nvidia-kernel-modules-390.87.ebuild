@@ -14,7 +14,7 @@ SLOT="0/${PV%.*}"
 KEYWORDS="-* ~amd64 ~amd64-fbsd"
 RESTRICT="bindist mirror"
 
-IUSE="kernel_FreeBSD kernel_linux +kms pax_kernel +uvm"
+IUSE="kernel_FreeBSD kernel_linux +kms +uvm"
 
 DEPEND="
 	kernel_linux? ( virtual/linux-sources )
@@ -99,12 +99,6 @@ src_unpack() {
 
 
 src_prepare() {
-	if use pax_kernel; then
-		ewarn "Using PAX patches is not supported. You will be asked to"
-		ewarn "use a standard kernel should you have issues. Should you"
-		ewarn "need support with these patches, contact the PaX team."
-		eapply "${FILESDIR}"/${PN}-375.20-pax.patch
-	fi
 
 	default
 
@@ -144,11 +138,11 @@ src_install_linux() {
 		# This file is tweaked with the appropriate video group in
 		# pkg_preinst, see bug #491414
 		insinto /etc/modprobe.d
-		newins "${FILESDIR}"/nvidia-169.07 nvidia.conf
-		doins "${FILESDIR}"/nvidia-rmmod.conf
+		newins "${FILESDIR}"/nvidia.conf.modprobe nvidia.conf
+		newins "${FILESDIR}"/nvidia-rmmod.conf.modprobe nvidia-rmmod.conf
 
 		# Ensures that our device nodes are created when not using X
-		sed -e 's:/opt/bin:'"${NVDRIVERS_DIR}"'/bin:g' "${FILESDIR}/nvidia-udev.sh-r1" > "${T}/nvidia-udev.sh"
+		sed -e 's:/opt/bin:'"${NVDRIVERS_DIR}"'/bin:g' "${FILESDIR}/nvidia-udev.sh" > "${T}/nvidia-udev.sh"
 		exeinto "$(get_udevdir)"
 		doexe "${T}"/nvidia-udev.sh
 		udev_newrules "${FILESDIR}"/nvidia.udev-rule 99-nvidia.rules
