@@ -421,13 +421,14 @@ src_install() {
 
 	# If 'tools' flag is enabled, link nvidia-settings utility into /usr/bin, install an xinitrc.d file to start it, and link it's desktop file.
 	if use tools; then
-		[ -f "${D}${NV_ROOT}/bin/nvidia-settings" ] && dosym "${NV_ROOT}/bin/nvidia-settings" "/usr/bin/nvidia-modprobe"
+		[ -f "${D}${NV_ROOT}/bin/nvidia-settings" ] && dosym "${NV_ROOT}/bin/nvidia-settings" "/usr/bin/nvidia-settings"
 		exeinto /etc/X11/xinit/xinitrc.d
 		newexe "${FILESDIR}"/95-nvidia-settings.xinitrc 95-nvidia-settings
 		dosym "${NV_ROOT}/share/applications/nvidia-settings.desktop" "/usr/share/applications/nvidia-settings.desktop"
 	fi
 
 	# If 'X' flag is enabled, link nvidia-drm-outputclass.conf into system xorg.conf.d directory (xorg 1.16 and up),
+	# link nvidia_drv.so into /usr/$(get_libdir)/xorg/modules/drivers,
 	# and link nvidia_icd.json into system vulkan/icd.d directory.
 	if use X; then
 
@@ -436,6 +437,10 @@ src_install() {
 			dosym "${NV_ROOT}/share/X11/xorg.conf.d/nvidia-drm-outputclass.conf" "/usr/share/X11/xorg.conf.d/50-nvidia-drm-outputclass.conf"
 		fi
 
+		# Xorg driver nvidia_drv.so
+		dosym "${NV_NATIVE_LIBDIR}/xorg/modules/drivers/nvidia_drv.so" "/usr/$(get_libdir)/xorg/modules/drivers/nvidia_drv.so"
+
+		# Vulkan ICD
 		dosym "${NV_ROOT}/share/vulkan/icd.d/nvidia_icd.json" "/etc/vulkan/icd.d/nvidia_icd.json"
 	fi
 
