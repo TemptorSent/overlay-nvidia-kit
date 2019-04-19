@@ -11,7 +11,7 @@ SRC_URI="https://download.nvidia.com/XFree86/${PN}/${P}.tar.bz2"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="-* ~amd64 ~x86 ~x86-fbsd"
-IUSE="dbus doc gtk3 vdpau +system-jansson"
+IUSE="dbus +gtk3 vdpau +system-jansson"
 
 RDEPEND="x11-drivers/nvidia-drivers
         system-jansson? ( >=dev-libs/jansson-2.2 )
@@ -30,13 +30,25 @@ DEPEND="${RDEPEND}"
 src_prepare() {
     epatch "${FILESDIR}/nvidia-settings-gtk-independence.patch"
     default
+	# Don't forecfully strip non-debug builds
+	sed -e 's/\([[:space:]]*DO_STRIP[[:space:]]*?=\)[[:space:]]*1/\1/' \
+		-i utils.mk -i src/libXNVCtrl/utils.mk
 }
 
 src_compile() {
-    emake NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?)
+    emake PREFIX="/usr" NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?)
 }
 
 src_install() {
-    emake DESTDIR="${D}" NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?) install
-    use doc && einstalldocs
+    emake PREFIX="/usr" DESTDIR="${D}" NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?) install
+
+	dodoc doc/nvidia-settings.png doc/FRAMELOCK.txt doc/NV-CONTROL-API.txt
+
+	dodir "/usr/share/applications"
+	sed -e 's|__UTILS_PATH__|'"${EPREFIX}/usr/bin"'|' \
+		-e 's|__PIXMAP_PATH__|'"${EPREFIX}/usr/share/doc/${PF}/"'|' \
+		-e 's|__NVIDIA_SETTINGS_DESKTOP_CATEGORIES__|Settings;HardwareSettings;|' \
+		"${S}/doc/nvidia-settings.desktop" > "${ED}/usr/share/applications/nvidia-settings.desktop"
+
 }
+
