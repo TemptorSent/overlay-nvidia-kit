@@ -27,23 +27,61 @@ RDEPEND="x11-drivers/nvidia-drivers
         vdpau? ( x11-libs/libvdpau )"
 DEPEND="${RDEPEND}"
 
+PATCHES=(
+    ${FILESDIR}/nvidia-settings-gtk-independence.patch
+    ${FILESDIR}/nvidia-settings-linker.patch
+)
+
 src_prepare() {
-    epatch "${FILESDIR}/nvidia-settings-gtk-independence.patch"
+
     default
-	# Don't forecfully strip non-debug builds
-	sed -e 's/\([[:space:]]*DO_STRIP[[:space:]]*?=\)[[:space:]]*1/\1/' \
-		-i utils.mk -i src/libXNVCtrl/utils.mk
+
+	# Fix up a couple of typos which prevent the gtk2 version from building.
+	sed -e '/^# Build $(IMAGE_HEADERS)/,/^$(GTK2_OBJS): $(IMAGE_HEADERS)/ { s/GTK3/GTK2/; s/$(GTK2_OBJS)/  &/; };' \
+		-i src/Makefile
 }
 
 src_compile() {
-    emake PREFIX="/usr" NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?)
+
+	emake -C src \
+		AR="$(tc-getAR)" CC="$(tc-getCC)" LD="$(tc-getCC)" NVLD="$(tc-getLD)" RANLIB="$(tc-getRANLIB)" \
+		DO_STRIP= NV_VERBOSE=1 \
+		PREFIX="${EPREFIX}/usr" LIBDIR="$(get_libdir)" \
+		build-xnvctrl
+
+	emake -C src \
+		AR="$(tc-getAR)" CC="$(tc-getCC)" LD="$(tc-getCC)" NVLD="$(tc-getLD)" RANLIB="$(tc-getRANLIB)" \
+		DO_STRIP= NV_VERBOSE=1 NVML_ENABLED=1 \
+		NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?) GTK3_AVAILABLE=$(usex gtk3 1 0) \
+		PREFIX="${EPREFIX}/usr" LIBDIR="$(get_libdir)"
+
+	emake -C doc NV_VERBOSE=1 NVML_ENABLED=1 PREFIX="${EPREFIX}/usr"
+
 }
 
 src_install() {
-    emake PREFIX="/usr" DESTDIR="${D}" NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?) install
 
+	emake -C src \
+		DO_STRIP= NV_VERBOSE=1 NVML_ENABLED=1 \
+		NV_USE_BUNDLED_LIBJANSSON=$(use !system-jansson | echo $?) GTK3_AVAILABLE=$(usex gtk3 1 0) \
+		PREFIX="${EPREFIX}/usr" LIBDIR="${ED}/usr/$(get_libdir)" \
+		DESTDIR="${D}" install
+
+	emake -C doc \
+		NV_VERBOSE=1 NVML_ENABLED=1 PREFIX="${EPREFIX}/usr" \
+		DESTDIR="${D}" install
+
+	# Install static lib
+	dolib.a src/libXNVCtrl/libXNVCtrl.a
+
+	# Install headers
+	insinto /usr/include/NVCtrl
+	doins src/libXNVCtrl/*.h
+
+	# Install docs
 	dodoc doc/nvidia-settings.png doc/FRAMELOCK.txt doc/NV-CONTROL-API.txt
 
+	# Install desktop file
 	dodir "/usr/share/applications"
 	sed -e 's|__UTILS_PATH__|'"${EPREFIX}/usr/bin"'|' \
 		-e 's|__PIXMAP_PATH__|'"${EPREFIX}/usr/share/doc/${PF}/"'|' \
