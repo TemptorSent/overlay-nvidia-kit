@@ -248,9 +248,14 @@ nv_parse_manifest() {
 			GLX_CLIENT_LIB|EGL_CLIENT_LIB) _nv_glvnd "$f5" && nv_install_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$perms" "$f4" "$f6" ;;
 
 
-			#<libname> <perms> <type> <NATIVE/COMPAT32> <CLASSIC/NEW> <subdir> MODULE:<module>
+			#<libname> <perms> <type> <NATIVE/COMPAT32> [<CLASSIC/NEW>] <subdir> MODULE:<module>
 			#<libname> <perms> TLS_LIB <NATIVE/COMPAT32> <CLASSIC/NEW> <subdir> MODULE:<module>
-			TLS_LIB) _nv_tls "$f5" && nv_install_lib_arch "${NV_LIBDIR}/${f6%/}" "$name" "$perms" "$f4" "$f7" ;;
+			#<libname> <perms> TLS_LIB <NATIVE/COMPAT32> <subdir> MODULE:<module>
+			TLS_LIB)
+				case "$f5" in
+					CLASSIC|NEW) _nv_tls "$f5" && nv_install_lib_arch "${NV_LIBDIR}/${f6%/}" "$name" "$perms" "$f4" "$f7" ;;
+					*) nv_install_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$perms" "$f4" "$f6" ;;
+				esac;;
 
 			#<libname-tgt> <perms> <type> <NATIVE/COMPAT32> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> OPENGL_SYMLINK <NATIVE/COMPAT32> <libname-src> MODULE:<module>
@@ -323,6 +328,11 @@ nv_parse_manifest() {
 			#<bin-tgt> <perms> UTILITY_BIN_SYMLINK <bin-src> MODULE:<module>
 			UTILITY_BIN_SYMLINK) [ "x${f4}" = "xnvidia-installer" ] || nv_symlink "${NV_BINDIR}" "$name" "$f4" "$f5" ;;
 
+			# Kernel modules sources handled elsewhere
+			KERNEL_MODULE_SRC) : ;;
+
+			# Warn about any unhandled manifest entries
+			*) ewarn "Unhandled manifest entry: ${name} ${perms} ${type} ${f4} ${f5} ${f6} ${f7}" ;;
 		esac
 		
 	done <<-EOF
