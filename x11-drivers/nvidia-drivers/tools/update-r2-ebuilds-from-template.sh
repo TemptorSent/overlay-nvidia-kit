@@ -3,6 +3,8 @@ if [ -f nvidia-drivers-xxx.xx-r2.template ] ; then
 	for eb in *-r2.ebuild ; do
 		cp nvidia-drivers-xxx.xx-r2.template "${eb}"
 		case "${eb}" in
+			# Latest beta supporting GF600+
+			*-430.09-*) mymaxkv="5.1" ;;
 			# Latest long-lived branch supporting GF600+
 			*-418.56-*) mymaxkv="5.1" ;;
 			# Current short-lived branch supporting GF600+

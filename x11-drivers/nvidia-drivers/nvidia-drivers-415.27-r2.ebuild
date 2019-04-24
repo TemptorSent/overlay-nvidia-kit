@@ -91,7 +91,9 @@ NV_X_MODDIR="xorg/modules"
 # Fixups for issues with particular versions of the package.
 nv_do_fixups() {
 
-	use wayland && ! [ -h "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1" ] \
+	use wayland \
+		&& [ "${D}${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1".* != "${D}${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1.*" ] \
+		&& ! [ -h "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1" ] \
 		&& dosym "$(cd "${D}${NV_NATIVE_LIBDIR}" && ls -1 libnvidia-egl-wayland.so.1.* | tail -1)" "${NV_NATIVE_LIBDIR}/libnvidia-egl-wayland.so.1"
 }
 
@@ -102,13 +104,13 @@ docompat32() { use compat32 && return 0; use abi_x86_32 && return 0 ; return 1 ;
 # Convert module names to use-flags as appropriate
 nv_use() {
 	local mymodule
-	case "$1" in
-		installer) return 0;;
+	mymodule="${1}"
+	case "${mymodule}" in
+		installer) mymodule="" ;;
 		compiler|gpgpucomp) mymodule="gpgpu" ;;
-		*) mymodule="$1" ;;
 	esac
 
-	use "$mymodule" || return 1
+	[ -z "${mymodule}" ] || use "${mymodule}" || return 1
 	return 0
 }
 
@@ -139,7 +141,7 @@ nv_install() {
 	local mymodule="${4#MODULE:}"
 
 	nv_use "${mymodule}" || return 0
-	einfo "[${mymodule}] Installing '${myfile}' with perms ${myperms} to '${mydir%/}'."
+	einfo "[${mymodule:-*}] Installing '${myfile}' with perms ${myperms} to '${mydir%/}'."
 
 	if ! [ -e "${myfile}" ] ; then
 		ewarn "File '${myfile}' specified in manifest does not exist!"
@@ -170,7 +172,7 @@ nv_symlink() {
 	local mysrc="$3"
 	local mymodule="${4#MODULE:}"
 	nv_use "${mymodule}" || return 0
-	einfo "[${mymodule}] Linking '${mysrc}' to '${mytgt}' in '${mydir%/}'."
+	einfo "[${mymodule:-*}] Linking '${mysrc}' to '${mytgt}' in '${mydir%/}'."
 	dosym "${mysrc}" "${mydir%/}/${mytgt#/}"
 }
 
@@ -219,8 +221,22 @@ nv_install_desktop() {
 nv_parse_manifest() {
 	[ -r .manifest ] || die "Can not read .manifest!"
 	local name perms type f4 f5 f6 f7
+	local module fields
 	while read -r name perms type f4 f5 f6 f7; do
 		#einfo "Manifest entry: '$name' '$perms' '$type' '$f4' '$f5' '$f6' '$f7'"
+
+		# Figure out which is our last field, and if it contains a MODULE: entry, grab that value and clear the field.
+		case "${f7}~${f6}~${f5}~${f4}~" in
+			MODULE:*~*~*~*~) module="$f7" ; f7="" ; fields=6 ;;
+			~MODULE:*~*~*~) module="$f6" ; f6="" ; fields=5 ;;
+			~~MODULE:*~*~) module="$f5" ; f5="" ; fields=4 ;;
+			~~~MODULE:*~) module="$f4" ; f4="" ; fields=3 ;;
+			~*~*~*~) fields=6 ;;
+			~~*~*~) fields=5 ;;
+			~~~*~) fields=4 ;;
+			~~~~) fields=3 ;;
+		esac
+
 		case "$type" in
 
 			#<libname> <perms> <type> <NATIVE/COMPAT32> MODULE:<module>
@@ -231,21 +247,21 @@ nv_parse_manifest() {
 			#<libname> <perms> ENCODEAPI_LIB <NATIVE/COMPAT32> MODULE:<module>
 			#<libname> <perms> NVIFR_LIB <NATIVE/COMPAT32> MODULE:<module>
 			#<libname> <perms> UTILITY_LIB <NATIVE/COMPAT32> MODULE:<module>
-			GLVND_LIB) _nv_glvnd "GLVND" && nv_install_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$perms" "$f4" "$f5" ;;
-			OPENGL_LIB|LIBGL_LA|NVCUVID_LIB|ENCODEAPI_LIB|NVIFR_LIB|UTILITY_LIB) nv_install_lib_arch "${NV_LIBDIR}" "$name" "$perms" "$f4" "$f5" ;;
+			GLVND_LIB) _nv_glvnd "GLVND" && nv_install_lib_arch "${NV_OPENGL_VEND_DIR}/lib/${f5%/}" "$name" "$perms" "$f4" "$module" ;;
+			OPENGL_LIB|LIBGL_LA|NVCUVID_LIB|ENCODEAPI_LIB|NVIFR_LIB|UTILITY_LIB) nv_install_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$perms" "$f4" "$module" ;;
 
 			#<libname> <perms> <type> <NATIVE/COMPAT32> <subdir> MODULE:<module>
 			#<libname> <perms> CUDA_LIB <NATIVE/COMPAT32> <subdir> MODULE:<module>
 			#<libname> <perms> OPENCL_LIB <NATIVE/COMPAT32> <subdir> MODULE:<module>
 			#<libname> <perms> OPENCL_WRAPPER_LIB <NATIVE/COMPAT32> <subdir> MODULE:<module>
 			#<libname> <perms> VDPAU_LIB <NATIVE/COMPAT32> <subdir> MODULE:<module>
-			OPENCL_LIB|CUDA_LIB|VDPAU_LIB) nv_install_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$perms" "$f4" "$f6" ;;
-			OPENCL_WRAPPER_LIB) nv_install_lib_arch "${NV_OPENCL_VEND_DIR}/lib/${f5%/}" "$name" "$perms" "$f4" "$f6" ;;
+			OPENCL_LIB|CUDA_LIB|VDPAU_LIB|VDPAU_WRAPPER_LIB) nv_install_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$perms" "$f4" "$module" ;;
+			OPENCL_WRAPPER_LIB) nv_install_lib_arch "${NV_OPENCL_VEND_DIR}/lib/${f5%/}" "$name" "$perms" "$f4" "$module" ;;
 
 			#<libname> <perms> <type> <NATIVE/COMPAT32> <GLVND/NON_GLVND> MODULE:<module>
 			#<libname> <perms> GLX_CLIENT_LIB <NATIVE/COMPAT32> <GLVND/NON_GLVND> MODULE:<module>
 			#<libname> <perms> EGL_CLIENT_LIB <NATIVE/COMPAT32> <GLVND/NON_GLVND> MODULE:<module>
-			GLX_CLIENT_LIB|EGL_CLIENT_LIB) _nv_glvnd "$f5" && nv_install_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$perms" "$f4" "$f6" ;;
+			GLX_CLIENT_LIB|EGL_CLIENT_LIB) _nv_glvnd "$f5" && nv_install_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$perms" "$f4" "$module" ;;
 
 
 			#<libname> <perms> <type> <NATIVE/COMPAT32> [<CLASSIC/NEW>] <subdir> MODULE:<module>
@@ -253,8 +269,8 @@ nv_parse_manifest() {
 			#<libname> <perms> TLS_LIB <NATIVE/COMPAT32> <subdir> MODULE:<module>
 			TLS_LIB)
 				case "$f5" in
-					CLASSIC|NEW) _nv_tls "$f5" && nv_install_lib_arch "${NV_LIBDIR}/${f6%/}" "$name" "$perms" "$f4" "$f7" ;;
-					*) nv_install_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$perms" "$f4" "$f6" ;;
+					CLASSIC|NEW) _nv_tls "$f5" && nv_install_lib_arch "${NV_LIBDIR}/${f6%/}" "$name" "$perms" "$f4" "$module" ;;
+					*) nv_install_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$perms" "$f4" "$module" ;;
 				esac;;
 
 			#<libname-tgt> <perms> <type> <NATIVE/COMPAT32> <libname-src> MODULE:<module>
@@ -264,34 +280,34 @@ nv_parse_manifest() {
 			#<libname-tgt> <perms> ENCODEAPI_LIB_SYMLINK <NATIVE/COMPAT32> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> NVIFR_LIB_SYMLINK <NATIVE/COMPAT32> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> UTILITY_LIB_SYMLINK <NATIVE/COMPAT32> <libname-src> MODULE:<module>
-			GLVND_SYMLINK)_nv_glvnd "GLVND" && nv_symlink_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$f4" "$f5" "$f6" ;;
-			OPENGL_SYMLINK|NVCUVID_LIB_SYMLINK|ENCODEAPI_LIB_SYMLINK|NVIFR_LIB_SYMLINK|UTILITY_LIB_SYMLINK) nv_symlink_lib_arch "${NV_LIBDIR}" "$name" "$f4" "$f5" "$f6" ;;
+			GLVND_SYMLINK)_nv_glvnd "GLVND" && nv_symlink_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$f4" "$f5" "$module" ;;
+			OPENGL_SYMLINK|NVCUVID_LIB_SYMLINK|ENCODEAPI_LIB_SYMLINK|NVIFR_LIB_SYMLINK|UTILITY_LIB_SYMLINK) nv_symlink_lib_arch "${NV_LIBDIR}" "$name" "$f4" "$f5" "$module" ;;
 
 			#<libname-tgt> <perms> <type> <NATIVE/COMPAT32> <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> CUDA_SYMLINK <NATIVE/COMPAT32> <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> OPENCL_LIB_SYMLINK <NATIVE/COMPAT32> <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> OPENCL_WRAPPER_SYMLINK <NATIVE/COMPAT32> <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> VDPAU_SYMLINK <NATIVE/COMPAT32> <subdir> <libname-src> MODULE:<module>
-			OPENCL_LIB_SYMLINK|CUDA_SYMLINK|VDPAU_SYMLINK) nv_symlink_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$f4" "$f6" "$f7" ;;
-			OPENCL_WRAPPER_SYMLINK) nv_symlink_lib_arch "${NV_OPENCL_VEND_DIR}/lib/${f5%/}" "$name" "$f4" "$f6" "$f7" ;;
+			OPENCL_LIB_SYMLINK|CUDA_SYMLINK|VDPAU_SYMLINK|VDPAU_WRAPPER_SYMLINK) nv_symlink_lib_arch "${NV_LIBDIR}/${f5%/}" "$name" "$f4" "$f6" "$module" ;;
+			OPENCL_WRAPPER_SYMLINK) nv_symlink_lib_arch "${NV_OPENCL_VEND_DIR}/lib/${f5%/}" "$name" "$f4" "$f6" "$module" ;;
 
 			#<libname-tgt> <perms> <type> <NATIVE/COMPAT32> <libname-src> <GLVND/NON_GLVND> MODULE:<module>
 			#<libname-tgt> <perms> GLX_CLIENT_SYMLINK <NATIVE/COMPAT32> <libname-src> <GLVND/NON_GLVND> MODULE:<module>
 			#<libname-tgt> <perms> EGL_CLIENT_SYMLINK <NATIVE/COMPAT32> <libname-src> <GLVND/NON_GLVND> MODULE:<module>
-			GLX_CLIENT_SYMLINK|EGL_CLIENT_SYMLINK) _nv_glvnd "$f6" && nv_symlink_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$f4" "$f5" "$f7" ;;
+			GLX_CLIENT_SYMLINK|EGL_CLIENT_SYMLINK) _nv_glvnd "$f6" && nv_symlink_lib_arch "${NV_OPENGL_VEND_DIR}/lib" "$name" "$f4" "$f5" "$module" ;;
 
 			#<libname> <perms> <type> <subdir> MODULE:<module>
 			#<libname> <perms> X_MODULE_SHARED_LIB <subdir> MODULE:<module>
 			#<libname> <perms> GLX_MODULE_SHARED_LIB <subdir> MODULE:<module>
-			XMODULE_SHARED_LIB) nv_install "$(get_libdir)/${NV_X_MODDIR}/${f4%/}" "$name" "$perms" "$f5";;
-			GLX_MODULE_SHARED_LIB) nv_install "$(get_libdir)/${NV_OPENGL_VEND_DIR}/${f4%/}" "$name" "$perms" "$f5" ;;
+			XMODULE_SHARED_LIB) nv_install "$(get_libdir)/${NV_X_MODDIR}/${f4%/}" "$name" "$perms" "$module";;
+			GLX_MODULE_SHARED_LIB) nv_install "$(get_libdir)/${NV_OPENGL_VEND_DIR}/${f4%/}" "$name" "$perms" "$module" ;;
 
 			#<libname-tgt> <perms> <type> <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> XMODULE_SYMLINK <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> XMODULE_NEWSYM <subdir> <libname-src> MODULE:<module>
 			#<libname-tgt> <perms> GLX_MODULE_SYMLINK <subdir> <libname-src> MODULE:<module>
-			XMODULE_SYMLINK|XMODULE_NEWSYM) nv_symlink "$(get_libdir)/${NV_X_MODDIR}/${f4%/}" "$name" "$f5" "$f6";;
-			GLX_MODULE_SYMLINK) nv_symlink "$(get_libdir)/${NV_OPENGL_VEND_DIR}/${f4%/}" "$name" "$f5" "$f6" ;;
+			XMODULE_SYMLINK|XMODULE_NEWSYM) nv_symlink "$(get_libdir)/${NV_X_MODDIR}/${f4%/}" "$name" "$f5" "$module";;
+			GLX_MODULE_SYMLINK) nv_symlink "$(get_libdir)/${NV_OPENGL_VEND_DIR}/${f4%/}" "$name" "$f5" "$module" ;;
 
 			#<file> <perms> <type> <subdir> MODULE:<module>
 			#<header> <perms> OPENGL_HEADER <subdir> MODULE:<module>
@@ -301,12 +317,14 @@ nv_parse_manifest() {
 			#<file> <perms> MANPAGE <subdir> MODULE:<module>
 			#<binary> <perms> NVIDIA_MODPROBE <subdir> MODULE:<module>
 			#<file> <perms> NVIDIA_MODPROBE_MANPAGE <subdir> MODULE:<module>
-			OPENGL_HEADER) nv_install "${NV_INCDIR}/${f4%/}" "$name" "$perms" "$f5" ;;
-			APPLICATION_PROFILE) nv_install "${NV_SHAREDIR}/nvidia/${f4%/}" "$name" "$perms" "$f5" ;;
-			DOT_DESKTOP) nv_install_desktop "${NV_SHAREDIR}/applications/${f4%/}" "$name" "$perms" "$f5" ;;
-			NVIDIA_MODPROBE) nv_install_modprobe "${NV_BINDIR}" "$name" "$perms" "$f5" ;;
-			NVIDIA_MODPROBE_MANPAGE|MANPAGE) nv_install "${NV_SHAREDIR}/man/${f4%/}" "$name" "$perms" "$f5" ;;
-			DOCUMENTATION) nv_install "${NV_SHAREDIR}/doc/${f4%/}" "$name" "$perms" "$f5" ;;
+			#<file> <perms> EXPLICIT_PATH <subdir> MODULE:<module>  (used in 340.x)
+			OPENGL_HEADER) nv_install "${NV_INCDIR}/${f4%/}" "$name" "$perms" "$module" ;;
+			APPLICATION_PROFILE) nv_install "${NV_SHAREDIR}/nvidia/${f4%/}" "$name" "$perms" "$module" ;;
+			DOT_DESKTOP) nv_install_desktop "${NV_SHAREDIR}/applications/${f4%/}" "$name" "$perms" "$module" ;;
+			NVIDIA_MODPROBE) nv_install_modprobe "${NV_BINDIR}" "$name" "$perms" "$module" ;;
+			NVIDIA_MODPROBE_MANPAGE|MANPAGE) nv_install "${NV_SHAREDIR}/man/${f4%/}" "$name" "$perms" "$module" ;;
+			DOCUMENTATION) nv_install "${NV_SHAREDIR}/doc/${f4%/}" "$name" "$perms" "$module" ;;
+			EXPLICIT_PATH) nv_install "${ED%/}/${f4%/}" "$name" "$perms" "$module" ;;
 
 			#<file> <perms> <type> MODULE:<module>
 			#<binary> <perms> INSTALLER_BINARY MODULE:<module>
@@ -316,20 +334,23 @@ nv_parse_manifest() {
 			#<file> <perms> VULKAN_ICD_JSON MODULE:<module>
 			#<file> <perms> GLVND_EGL_ICD_JSON MODULE:<module>
 			#<file> <perms> EGL_EXTERNAL_PLATFORM_JSON MODULE:<module>
-			INSTALLER_BINARY) [ "x${name}" = "xnvidia-installer" ] || nv_install "${NV_BINDIR}" "$name" "$perms" "$f4" ;;
+			INSTALLER_BINARY) [ "x${name}" = "xnvidia-installer" ] || nv_install "${NV_BINDIR}" "$name" "$perms" "$module" ;;
 			UTILITY_BINARY) nv_install "${NV_BINDIR}" "$name" "$perms" "$f4" ;;
-			XORG_OUTPUTCLASS_CONFIG) nv_install_outputclass_config "${NV_SHAREDIR}/X11/xorg.conf.d/" "$name" "$perms" "$f4" ;;
-			CUDA_ICD) nv_install "${NV_SHAREDIR}/OpenCL/vendors/" "$name" "$perms" "$f4" ;;
-			VULKAN_ICD_JSON) nv_install_vulkan_icd "${NV_SHAREDIR}/vulkan/icd.d/" "$name" "$perms" "$f4" ;;
-			GLVND_EGL_ICD_JSON) nv_install "${NV_SHAREDIR}/glvnd/egl_vendor.d/" "$name" "$perms" "$f4" ;;
-			EGL_EXTERNAL_PLATFORM_JSON) nv_install "${NV_SHAREDIR}/egl/egl_external_platform.d/" "$name" "$perms" "$f4" ;;
+			XORG_OUTPUTCLASS_CONFIG) nv_install_outputclass_config "${NV_SHAREDIR}/X11/xorg.conf.d/" "$name" "$perms" "$module" ;;
+			CUDA_ICD) nv_install "${NV_SHAREDIR}/OpenCL/vendors/" "$name" "$perms" "$module" ;;
+			VULKAN_ICD_JSON) nv_install_vulkan_icd "${NV_SHAREDIR}/vulkan/icd.d/" "$name" "$perms" "$module" ;;
+			GLVND_EGL_ICD_JSON) nv_install "${NV_SHAREDIR}/glvnd/egl_vendor.d/" "$name" "$perms" "$module" ;;
+			EGL_EXTERNAL_PLATFORM_JSON) nv_install "${NV_SHAREDIR}/egl/egl_external_platform.d/" "$name" "$perms" "$module" ;;
 
 			#<bin-tgt> <perms> <type> <bin-src> MODULE:<module>
 			#<bin-tgt> <perms> UTILITY_BIN_SYMLINK <bin-src> MODULE:<module>
-			UTILITY_BIN_SYMLINK) [ "x${f4}" = "xnvidia-installer" ] || nv_symlink "${NV_BINDIR}" "$name" "$f4" "$f5" ;;
+			UTILITY_BIN_SYMLINK) [ "x${f4}" = "xnvidia-installer" ] || nv_symlink "${NV_BINDIR}" "$name" "$f4" "$module" ;;
 
 			# Kernel modules sources handled elsewhere
 			KERNEL_MODULE_SRC) : ;;
+			UVM_MODULE_SRC) : ;;
+
+
 
 			# Warn about any unhandled manifest entries
 			*) ewarn "Unhandled manifest entry: ${name} ${perms} ${type} ${f4} ${f5} ${f6} ${f7}" ;;
