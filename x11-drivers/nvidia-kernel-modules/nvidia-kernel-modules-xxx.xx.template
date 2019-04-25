@@ -15,7 +15,7 @@ KEYWORDS="-* ~amd64 ~amd64-fbsd"
 RESTRICT="bindist mirror"
 
 IUSE="kernel_FreeBSD kernel_linux"
-[ "${PV##.*}" -gt 340 ] && IUSE="${IUSE} +kms +uvm"
+[ ${PV%%.*} -gt 340 ] && IUSE="${IUSE} +kms +uvm"
 
 DEPEND="
 	=x11-drivers/nvidia-drivers-${PV}*
