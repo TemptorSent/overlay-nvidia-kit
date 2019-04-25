@@ -114,7 +114,7 @@ NV_OPENCL_VEND_DIR="OpenCL/nvidia"
 NV_X_MODDIR="xorg/modules"
 
 # Maximum supported kernel version in form major.minor
-: "${NV_MAX_KERNEL_VERSION:=5.0}"
+: "${NV_MAX_KERNEL_VERSION:=4.20}"
 
 # Fixups for issues with particular versions of the package.
 nv_do_fixups() {
@@ -255,7 +255,7 @@ nv_parse_manifest() {
 	local name perms type f4 f5 f6 f7
 	local module fields
 	while read -r name perms type f4 f5 f6 f7; do
-		einfo "Manifest entry: '$name' '$perms' '$type' '$f4' '$f5' '$f6' '$f7'"
+		#einfo "Manifest entry: '$name' '$perms' '$type' '$f4' '$f5' '$f6' '$f7'"
 
 		# Figure out which is our last field, and if it contains a MODULE: entry, grab that value and clear the field.
 		case "${f7}~${f6}~${f5}~${f4}~" in
