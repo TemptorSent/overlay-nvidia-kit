@@ -1,7 +1,7 @@
 
-if [ -f nvidia-drivers-xxx.xx-r2.template ] ; then
-	for eb in *-r2.ebuild ; do
-		cp nvidia-drivers-xxx.xx-r2.template "${eb}"
+if [ -f nvidia-kernel-modules-xxx.xx.template ] ; then
+	for eb in *.ebuild ; do
+		cp nvidia-kernel-modules-xxx.xx.template "${eb}"
 		case "${eb}" in
 			# Latest beta supporting GF600+
 			*-430.09-*) mymaxkv="5.1" ;;
@@ -19,6 +19,6 @@ if [ -f nvidia-drivers-xxx.xx-r2.template ] ; then
 		sed -e 's/\(: "${NV_MAX_KERNEL_VERSION:=\)\(.*\)\(}"\)/\1'"${mymaxkv:-5.0}"'\3/' -i "${eb}"
 	done
 else
-	printf 'Could not find "nvidia-drivers-xxx.xx-r2.template" in current directory.\n'
-	printf 'Please run tools/'"$0"' from x11-drivers/nvidia-drivers directory.\n'
+	printf 'Could not find "nvidia-kernel-modules-xxx.xx.template" in current directory.\n'
+	printf 'Please run tools/'"$0"' from x11-drivers/nvidia-kernel-modules directory.\n'
 fi

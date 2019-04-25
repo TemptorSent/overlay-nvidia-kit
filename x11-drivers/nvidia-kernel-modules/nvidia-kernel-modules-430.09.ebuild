@@ -14,7 +14,8 @@ SLOT="0/${PV%.*}"
 KEYWORDS="-* ~amd64 ~amd64-fbsd"
 RESTRICT="bindist mirror"
 
-IUSE="kernel_FreeBSD kernel_linux +kms +uvm"
+IUSE="kernel_FreeBSD kernel_linux"
+[ "${PV##.*}" -gt 340 ] && IUSE="${IUSE} +kms +uvm"
 
 DEPEND="
 	=x11-drivers/nvidia-drivers-${PV}*
@@ -23,12 +24,16 @@ DEPEND="
 NVDRIVERS_DIR="${EPREFIX}/opt/nvidia/nvidia-drivers-${PV}"
 S="${WORKDIR}/kernel-modules"
 
+# Maximum supported kernel version in form major.minor
+: "${NV_MAX_KERNEL_VERSION:=5.0}"
+
+
 nvidia_drivers_versions_check() {
-	if use kernel_linux && kernel_is ge 5 1; then
+	if use kernel_linux && kernel_is ge ${NV_MAX_KERNEL_VERSION%%.*} ${NV_MAX_KERNEL_VERSION#*.}; then
 		ewarn "Gentoo supports kernels which are supported by NVIDIA"
 		ewarn "which are limited to the following kernels:"
-		ewarn "<sys-kernel/gentoo-sources-5.1"
-		ewarn "<sys-kernel/vanilla-sources-5.1"
+		ewarn "<sys-kernel/gentoo-sources-4.17"
+		ewarn "<sys-kernel/vanilla-sources-4.17"
 		ewarn ""
 		ewarn "You are free to utilize epatch_user to provide whatever"
 		ewarn "support you feel is appropriate, but will not receive"
