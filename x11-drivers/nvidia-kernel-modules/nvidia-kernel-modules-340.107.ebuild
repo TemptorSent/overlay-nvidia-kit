@@ -15,7 +15,7 @@ KEYWORDS="-* ~amd64 ~amd64-fbsd"
 RESTRICT="bindist mirror"
 
 IUSE="kernel_FreeBSD kernel_linux"
-[ ${PV%%.*} -gt 340 ] && IUSE="${IUSE} +kms +uvm"
+[ ${PV%%.*} -gt 340 ] && IUSE="${IUSE} +kms +uvm" || IUSE="${IUSE} uvm"
 
 DEPEND="
 	=x11-drivers/nvidia-drivers-${PV}*
@@ -76,8 +76,8 @@ pkg_setup() {
 pkg_setup_linux() {
 
 	MODULE_NAMES="nvidia(video:${S})"
-	use uvm && MODULE_NAMES+=" nvidia-uvm(video:${S})"
-	use kms && MODULE_NAMES+=" nvidia-modeset(video:${S}) nvidia-drm(video:${S})"
+	use_if_iuse uvm && MODULE_NAMES+=" nvidia-uvm(video:${S})"
+	use_if_iuse kms && MODULE_NAMES+=" nvidia-modeset(video:${S}) nvidia-drm(video:${S})"
 
 	# This needs to run after MODULE_NAMES (so that the eclass checks
 	# whether the kernel supports loadable modules) but before BUILD_PARAMS
@@ -165,7 +165,7 @@ src_install_freebsd() {
 }
 
 pkg_preinst() {
-	use kernel_linux &&pkg_preinst_linux
+	use kernel_linux && pkg_preinst_linux
 }
 
 pkg_preinst_linux() {
