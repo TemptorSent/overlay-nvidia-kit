@@ -15,7 +15,12 @@ KEYWORDS="-* ~amd64 ~amd64-fbsd"
 RESTRICT="bindist mirror"
 
 IUSE="kernel_FreeBSD kernel_linux"
-[ ${PV%%.*} -gt 340 ] && IUSE="${IUSE} +kms +uvm" || IUSE="${IUSE} uvm"
+
+if [ ${PV%%.*} -ge 364 ] ; then
+	IUSE="${IUSE} +kms +uvm"
+elif [ ${PV%%.*} -ge 331 ] ; then
+	IUSE="${IUSE} uvm"
+fi
 
 DEPEND="
 	=x11-drivers/nvidia-drivers-${PV}*
@@ -76,7 +81,14 @@ pkg_setup() {
 pkg_setup_linux() {
 
 	MODULE_NAMES="nvidia(video:${S})"
-	use_if_iuse uvm && MODULE_NAMES+=" nvidia-uvm(video:${S})"
+
+	# Directory structure changed somewhere between 340 and 390, probably ad 364 when the drm/kms stuff was added.
+	if [ ${PV%%.*} -ge 364 ] ; then
+		use_if_iuse uvm && MODULE_NAMES+=" nvidia-uvm(video:${S})"
+	else
+		use_if_iuse uvm && MODULE_NAMES+=" nvidia-uvm(video:${S}/uvm)"
+	fi
+
 	use_if_iuse kms && MODULE_NAMES+=" nvidia-modeset(video:${S}) nvidia-drm(video:${S})"
 
 	# This needs to run after MODULE_NAMES (so that the eclass checks
@@ -105,6 +117,13 @@ src_unpack() {
 
 
 src_prepare() {
+
+	# Apply patches for our exact package and version
+	local mypatch
+	for mypatch in "${FILESDIR}"/${P}*.patch ; do
+		[ "${mypatch}" = "${FILESDIR}/${P}*.patch" ] && break
+		eapply "${mypatch}"
+	done
 
 	default
 
