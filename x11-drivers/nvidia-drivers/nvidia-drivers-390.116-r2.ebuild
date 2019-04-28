@@ -530,6 +530,7 @@ src_install() {
 	# If we're not using glvnd support, link nvidia opengl vendor directory into system opengl vendor directory
 	if ! use_if_iuse glvnd ; then
 		dosym "${NV_NATIVE_LIBDIR}/opengl/nvidia" "${EPREFIX}/usr/lib/opengl/nvidia"
+		dosym "${NV_NATIVE_LIBDIR}" "${NV_NATIVE_LIBDIR}/opengl/nvidia/lib"
 	fi
 
 
