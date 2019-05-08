@@ -6,6 +6,7 @@ if [ -f nvidia-drivers-xxx.xx-r2.template ] ; then
 			# Latest beta supporting GF600+
 			*-430.09-*) mymaxkv="5.1" ;;
 			# Latest long-lived branch supporting GF600+
+			*-418.74-*) mymaxkv="5.1" ;;
 			*-418.56-*) mymaxkv="5.1" ;;
 			# Current short-lived branch supporting GF600+
 			*-415.27-*) mymaxkv="4.20" ;;

@@ -4,7 +4,7 @@ fetch_supported_chips_for_driver() {
 	local driver_arch=${2-Linux-x86_64}
 	curl -s "https://download.nvidia.com/XFree86/${driver_arch}/${driver_ver}/README/supportedchips.html" \
 		| extract_driver_compat_from_supportedchips_html \
-		| sed -e 's/^current/'"${driver_ver}"'/'
+		| sed -e 's/^current/'"${driver_ver%.*}"'/'
 }
 
 
