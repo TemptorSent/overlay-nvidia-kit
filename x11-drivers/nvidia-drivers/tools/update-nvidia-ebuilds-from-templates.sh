@@ -7,7 +7,7 @@ _get_eb_max_kv() {
 	local mymaxkv=5.0
 	case "${1}" in
 		# Latest stable supporting GF600+
-		*-430.14-*) mymaxkv="5.1" ;;
+		*-430.14-*|*-430.26-*) mymaxkv="5.1" ;;
 		# Beta supporting GF600+
 		*-430.09-*) mymaxkv="5.1" ;;
 		# Latest long-lived branch supporting GF600+

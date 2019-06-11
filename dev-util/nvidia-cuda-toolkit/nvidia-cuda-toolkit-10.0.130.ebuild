@@ -15,8 +15,8 @@ DRIVER_PV="410.48"
 DRIVER_MIN_PV="410.48"
 
 # GCC versions officially supported and supported by gcc-version-hack.
-CUDA_SUPPORTED_GCC="4.7 4.8 4.9 5.3 5.4 6.3 6.4 7.2 7.3"
-CUDA_UNSUPPORTED_GCC="8.0 8.1"
+CUDA_SUPPORTED_GCC="4.7 4.8 4.9 5.3 5.4 6.3 6.4 6.5 7.2 7.3"
+CUDA_UNSUPPORTED_GCC="8.1 8.2 8.3"
 
 CUDA_PKGNAME="cuda_${MY_PV}_${DRIVER_PV}_linux"
 
@@ -49,16 +49,13 @@ RDEPEND="${DEPEND}
 	>=sys-devel/gcc-4.7[cxx]
 	!gcc-version-hack? ( <=sys-devel/gcc-${CUDA_SUPPORTED_GCC##* }[cxx] )
 	gcc-version-hack? ( <=sys-devel/gcc-${CUDA_UNSUPPORTED_GCC##* }[cxx] )
+	>=x11-drivers/nvidia-drivers-${DRIVER_MIN_PV}[X,uvm]
 	debugger? (
 		sys-libs/libtermcap-compat
 		sys-libs/ncurses:5/5[tinfo]
 		)
 	eclipse? ( >=virtual/jre-1.6 )
 	profiler? ( >=virtual/jre-1.6 )"
-
-PDEPEND="
-	>=x11-drivers/nvidia-drivers-${DRIVER_MIN_PV}[X,uvm]
-"
 
 S="${WORKDIR}/myroot"
 DRIVER_RUN="NVIDIA-Linux-x86_64-${DRIVER_PV}.run"
